@@ -4,8 +4,12 @@ import requests
 import pytz
 import yaml
 from tools.final_answer import FinalAnswerTool
+import ollama
+import os
+from dotenv import load_dotenv
 
 from Gradio_UI import GradioUI
+HG_TOKEN = os.getenv("HG_TOKEN")
 
 # Below is an example of a tool that does nothing. Amaze us with your creativity !
 @tool
@@ -39,12 +43,15 @@ final_answer = FinalAnswerTool()
 # If the agent does not answer, the model is overloaded, please use another model or the following Hugging Face Endpoint that also contains qwen2.5 coder:
 # model_id='https://pflgm2locj2t89co.us-east-1.aws.endpoints.huggingface.cloud' 
 
-model = HfApiModel(
-max_tokens=2096,
-temperature=0.5,
-model_id='Qwen/Qwen2.5-Coder-32B-Instruct',# it is possible that this model may be overloaded
-custom_role_conversions=None,
-)
+# model = HfApiModel(
+# max_tokens=2096,
+# temperature=0.5,
+# model_id='Qwen/Qwen2.5-Coder-32B-Instruct',# it is possible that this model may be overloaded
+# custom_role_conversions=None,
+# token=HG_TOKEN
+# )
+
+ollama_model = ollama.chat(model="deepseek-r1:7b")
 
 
 # Import tool from Hub
@@ -54,7 +61,7 @@ with open("prompts.yaml", 'r') as stream:
     prompt_templates = yaml.safe_load(stream)
     
 agent = CodeAgent(
-    model=model,
+    model=ollama_model,
     tools=[DuckDuckGoSearchTool(), image_generation_tool], ## add your tools here (don't remove final answer)
     max_steps=6,
     verbosity_level=1,

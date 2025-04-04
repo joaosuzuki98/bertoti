@@ -1,4 +1,4 @@
-from smolagents import CodeAgent,DuckDuckGoSearchTool, HfApiModel,load_tool,tool
+from smolagents import CodeAgent,DuckDuckGoSearchTool,load_tool,tool,LiteLLMModel
 import datetime
 import requests
 import pytz
@@ -51,8 +51,13 @@ final_answer = FinalAnswerTool()
 # token=HG_TOKEN
 # )
 
-ollama_model = ollama.chat(model="deepseek-r1:7b")
+# ollama_model = ollama.chat(model="deepseek-r1:7b")
 
+lite_model = LiteLLMModel(
+    model_id="ollama/deepseek-r1:7b",
+    temperature=0.6, 
+    max_tokens=200
+)
 
 # Import tool from Hub
 image_generation_tool = load_tool("agents-course/text-to-image", trust_remote_code=True)
@@ -61,7 +66,7 @@ with open("prompts.yaml", 'r') as stream:
     prompt_templates = yaml.safe_load(stream)
     
 agent = CodeAgent(
-    model=ollama_model,
+    model=lite_model,
     tools=[DuckDuckGoSearchTool(), image_generation_tool], ## add your tools here (don't remove final answer)
     max_steps=6,
     verbosity_level=1,
@@ -72,5 +77,8 @@ agent = CodeAgent(
     prompt_templates=prompt_templates
 )
 
-
-GradioUI(agent).launch()
+# Launches the GUI interface, just remove the comment from the line above
+# GradioUI(agent).launch()
+user_input = input("Digite sua pergunta: ")
+response = agent.run(user_input)
+print(response)

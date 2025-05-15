@@ -1,4 +1,4 @@
-from smolagents import CodeAgent,DuckDuckGoSearchTool,load_tool,tool,LiteLLMModel
+from smolagents import CodeAgent,DuckDuckGoSearchTool,load_tool,tool,LiteLLMModel, HfApiModel
 import datetime
 import requests
 import pytz
@@ -7,9 +7,14 @@ from tools.final_answer import FinalAnswerTool
 import ollama
 import os
 from dotenv import load_dotenv
+from PIL import Image
+import pytesseract
+from flask import Flask, jsonify, request
 
 from Gradio_UI import GradioUI
 HG_TOKEN = os.getenv("HG_TOKEN")
+
+app = Flask(__name__)
 
 # Below is an example of a tool that does nothing. Amaze us with your creativity !
 @tool
@@ -37,19 +42,31 @@ def get_current_time_in_timezone(timezone: str) -> str:
     except Exception as e:
         return f"Error fetching time for timezone '{timezone}': {str(e)}"
 
+@tool
+def extract_text_from_image(image_path: str) -> str:
+    """Extracts text from an image using OCR.
+    Args:
+        image_path: Path to the image file.
+    """
+    try:
+        image = Image.open(image_path)
+        text = pytesseract.image_to_string(image)
+        return f"Extracted text: {text.strip()}"
+    except Exception as e:
+        return f"Error extracting text: {str(e)}"
 
 final_answer = FinalAnswerTool()
 
 # If the agent does not answer, the model is overloaded, please use another model or the following Hugging Face Endpoint that also contains qwen2.5 coder:
 # model_id='https://pflgm2locj2t89co.us-east-1.aws.endpoints.huggingface.cloud' 
 
-# model = HfApiModel(
-# max_tokens=2096,
-# temperature=0.5,
-# model_id='Qwen/Qwen2.5-Coder-32B-Instruct',# it is possible that this model may be overloaded
-# custom_role_conversions=None,
-# token=HG_TOKEN
-# )
+model = HfApiModel(
+    max_tokens=2096,
+    temperature=0.5,
+    model_id='Qwen/Qwen2.5-Coder-32B-Instruct',# it is possible that this model may be overloaded
+    custom_role_conversions=None,
+    token=HG_TOKEN
+)
 
 # ollama_model = ollama.chat(model="deepseek-r1:7b")
 
@@ -66,7 +83,7 @@ with open("prompts.yaml", 'r') as stream:
     prompt_templates = yaml.safe_load(stream)
     
 agent = CodeAgent(
-    model=lite_model,
+    model=model,
     tools=[DuckDuckGoSearchTool(), image_generation_tool], ## add your tools here (don't remove final answer)
     max_steps=6,
     verbosity_level=1,
@@ -79,6 +96,7 @@ agent = CodeAgent(
 
 # Launches the GUI interface, just remove the comment from the line above
 # GradioUI(agent).launch()
-user_input = input("Digite sua pergunta: ")
-response = agent.run(user_input)
+image_text = extract_text_from_image("./img/teste.png")
+# user_input = input("Digite sua pergunta: ")
+response = agent.run(f"this text got extracted from an image: {image_text}. What does that means? Answer in brazilian portuguese")
 print(response)

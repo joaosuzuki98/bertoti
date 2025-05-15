@@ -3,3 +3,6 @@ smolagents
 requests
 duckduckgo_search
 pandas
+ollama
+smolagents[litellm] # if this fails, just install it manually through pip install 'smolagents[litellm]'
+smolagents[gradio]

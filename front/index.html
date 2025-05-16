@@ -312,7 +312,7 @@
 <body>
   <div class="app-container">
     <header>
-      <h1>SUZUKINACTOR:ol the image extractor</h1>
+      <h1>SUZUKINACTOR: the text on image extractor</h1>
       <p class="subtitle">Transforme imagens em texto com precisão</p>
     </header>
     
@@ -470,7 +470,7 @@
       formData.append('prompt', prompt);
 
       try {
-        const res = await fetch('/process-image', {
+        const res = await fetch('http://localhost:5000/analyze-image', {
           method: 'POST',
           body: formData,
         });
@@ -478,7 +478,8 @@
         if (!res.ok) throw new Error("Erro no processamento");
 
         const data = await res.json();
-        extractedText = data.result || '';
+
+        extractedText = data.explanation || '';
         output.innerHTML = extractedText ? 
           `<p>${extractedText.replace(/\n/g, '<br>')}</p>` : 
           '<p style="color: var(--gray);">Nenhum texto foi identificado na imagem.</p>';

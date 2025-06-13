@@ -10,10 +10,26 @@ from smolagents import CodeAgent, DuckDuckGoSearchTool, load_tool, tool, LiteLLM
 from tools.final_answer import FinalAnswerTool
 from dotenv import load_dotenv
 from flask_cors import CORS
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 
 # Carregar variáveis de ambiente
 load_dotenv()
 HG_TOKEN = os.getenv("HG_TOKEN")
+
+
+
+# Carregar variáveis de e-mail com verificações
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+SMTP_SERVER = os.getenv("SMTP_SERVER")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))  # Conversão segura com valor padrão
+
+# Verificação imediata
+if None in [EMAIL_USER, EMAIL_PASSWORD, SMTP_SERVER]:
+    raise ValueError("Variáveis de e-mail essenciais não encontradas no .env")
 
 app = Flask(__name__)
 CORS(app)  # Habilitar CORS para todas as rotas
@@ -26,6 +42,43 @@ def extract_text_from_image(image_stream) -> str:
         return text.strip()
     except Exception as e:
         return f"Erro ao extrair texto: {str(e)}"
+
+def send_email(to_email, subject, body, attachment=None):
+    try:
+        # Verificação adicional das variáveis
+        if None in [EMAIL_USER, EMAIL_PASSWORD, SMTP_SERVER, SMTP_PORT]:
+            raise ValueError("Variáveis de e-mail não configuradas corretamente no .env")
+
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_USER
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+
+        if attachment:
+            attachment.seek(0)  # Reset file pointer
+            part = MIMEApplication(
+                attachment.read(),
+                Name=attachment.filename
+            )
+            part['Content-Disposition'] = f'attachment; filename="{attachment.filename}"'
+            msg.attach(part)
+
+        # Conexão mais robusta com tratamento de timeout
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.send_message(msg)
+            print(f"E-mail enviado com sucesso para {to_email}")
+            return True
+
+    except smtplib.SMTPAuthenticationError:
+        print("Erro de autenticação: Verifique EMAIL_USER e EMAIL_PASSWORD no .env")
+        return False
+    except Exception as e:
+        print(f"Erro ao enviar e-mail: {str(e)}")
+        return False
 
 # Carregar modelos e ferramentas
 final_answer = FinalAnswerTool()
@@ -119,6 +172,61 @@ def process_image():
 
     except Exception as e:
         return jsonify({'error': f'Ocorreu um erro ao processar a imagem: {str(e)}'}), 500
+
+@app.route('/test-smtp-connection')
+def test_smtp_connection():
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            return jsonify({
+                "status": "success",
+                "message": "Conexão SMTP bem-sucedida!",
+                "server": SMTP_SERVER,
+                "port": SMTP_PORT
+            }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "loaded_vars": {
+                "EMAIL_USER": EMAIL_USER,
+                "SMTP_SERVER": SMTP_SERVER,
+                "SMTP_PORT": SMTP_PORT
+            }
+        }), 500
+
+@app.route('/send-email', methods=['POST'])
+def send_email_route():
+    if 'email' not in request.form:
+        return jsonify({'error': 'Nenhum e-mail fornecido.'}), 400
+    
+    email = request.form['email']
+    text = request.form.get('text', '')
+    image = request.files.get('image')
+
+    if not text and not image:
+        return jsonify({'error': 'Nenhum conteúdo para enviar.'}), 400
+
+    try:
+        subject = "Resultado da extração de texto da imagem"
+        body = f"Segue o resultado da extração de texto:\n\n{text}\n\nAtenciosamente,\nSuzukinactor"
+
+        success = send_email(
+            to_email=email,
+            subject=subject,
+            body=body,
+            attachment=image
+        )
+
+        if success:
+            return jsonify({'message': 'E-mail enviado com sucesso!'}), 200
+        else:
+            return jsonify({'error': 'Falha ao enviar e-mail.'}), 500
+
+    except Exception as e:
+        return jsonify({'error': f'Ocorreu um erro ao enviar o e-mail: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

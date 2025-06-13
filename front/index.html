@@ -526,7 +526,7 @@
         formData.append('text', extractedText);
         formData.append('email', email);
 
-        const res = await fetch('/send-email', {
+        const res = await fetch('http://localhost:5000/send-email', {
           method: 'POST',
           body: formData,
         });

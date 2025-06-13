@@ -134,7 +134,7 @@ def analyze_image():
             return jsonify({'error': 'Nenhum texto foi extraído da imagem.'}), 400
 
         # Analisar o texto usando o agente
-        prompt = f"Este texto foi extraído de uma imagem: {extracted_text}. O que isso significa? Responda em português brasileiro."
+        prompt = f"Este texto foi extraído de uma imagem: {extracted_text}. Vocẽ é um corretor de imóveis e deverá fazer uma avaliação do imóvel do texto extraído, diga pontos interessantes perto do imóvel e também preço médio dele, como o preço da metragem e afins. Responda em português brasileiro."
         response = agent.run(prompt)
 
         return jsonify({'explanation': response}), 200
@@ -211,7 +211,7 @@ def send_email_route():
 
     try:
         subject = "Resultado da extração de texto da imagem"
-        body = f"Segue o resultado da extração de texto:\n\n{text}\n\nAtenciosamente,\nSuzukinactor"
+        body = f"Segue o resultado da extração de texto:\n\n{text}\n\nAtenciosamente,\nSuzukAI"
 
         success = send_email(
             to_email=email,

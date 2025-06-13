@@ -19,8 +19,6 @@ from email.mime.application import MIMEApplication
 load_dotenv()
 HG_TOKEN = os.getenv("HG_TOKEN")
 
-
-
 # Carregar variáveis de e-mail com verificações
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
@@ -28,7 +26,7 @@ SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))  # Conversão segura com valor padrão
 
 # Verificação imediata
-if None in [EMAIL_USER, EMAIL_PASSWORD, SMTP_SERVER]:
+if None in [EMAIL_USER, EMA_PASSWORD, SMTP_SERVER]:
     raise ValueError("Variáveis de e-mail essenciais não encontradas no .env")
 
 app = Flask(__name__)
@@ -152,13 +150,14 @@ def analyze_image():
     except Exception as e:
         return jsonify({'error': f'Ocorreu um erro ao processar a imagem: {str(e)}'}), 500
     
-@app.route('/process-image', methods=['POST'])
-def process_image():
+@app.route('/enhanced-image-analysis', methods=['POST'])
+def enhanced_image_analysis():
     if 'image' not in request.files:
         return jsonify({'error': 'Nenhum arquivo de imagem fornecido.'}), 400
 
     image_file = request.files['image']
-    user_prompt = request.form.get('prompt', '')  # Prompt opcional do usuário
+    user_prompt = request.form.get('prompt', '')  # Prompt complementar do usuário
+    context = request.form.get('context', '')    # Contexto adicional
 
     if image_file.filename == '':
         return jsonify({'error': 'Nome de arquivo inválido.'}), 400
@@ -168,20 +167,39 @@ def process_image():
         extracted_text = extract_text_from_image(image_file.stream)
 
         if not extracted_text:
-            return jsonify({'result': ''}), 200  # Sem texto extraído
+            return jsonify({'extracted_text': '', 'analysis': None}), 200
 
-        # Analisar com o agente apenas se houver prompt
+        # Construir resposta baseada no que foi solicitado
         if user_prompt.strip():
-            full_prompt = f"Texto extraído da imagem: {extracted_text}\n\nPergunta do usuário: {user_prompt}"
-            response = agent.run(full_prompt)
-            result = response
+            # Se houver prompt, usar o agente para análise avançada
+            full_prompt = (
+                f"Contexto fornecido: {context}\n\n"
+                f"Texto extraído da imagem: {extracted_text}\n\n"
+                f"Instrução do usuário: {user_prompt}\n\n"
+                "Por favor, analise o texto da imagem considerando o contexto e responda de forma completa em português brasileiro."
+            )
+            analysis = agent.run(full_prompt)
+            
+            response = {
+                'extracted_text': extracted_text,
+                'analysis': analysis,
+                'prompt_used': full_prompt
+            }
         else:
-            result = extracted_text  # Apenas o texto extraído
+            # Se não houver prompt, retornar apenas o texto extraído
+            response = {
+                'extracted_text': extracted_text,
+                'analysis': None,
+                'message': 'Nenhum prompt complementar foi fornecido.'
+            }
 
-        return jsonify({'result': result}), 200
+        return jsonify(response), 200
 
     except Exception as e:
-        return jsonify({'error': f'Ocorreu um erro ao processar a imagem: {str(e)}'}), 500
+        return jsonify({
+            'error': f'Ocorreu um erro ao processar a imagem: {str(e)}',
+            'details': 'Verifique se o arquivo é uma imagem válida e tente novamente.'
+        }), 500
 
 @app.route('/test-smtp-connection')
 def test_smtp_connection():

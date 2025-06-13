@@ -302,6 +302,35 @@
       display: block;
     }
     
+    .context-box {
+      margin-top: 1rem;
+    }
+    
+    .tabs {
+      display: flex;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .tab {
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    
+    .tab.active {
+      border-bottom: 2px solid var(--primary);
+      font-weight: 500;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
@@ -340,9 +369,28 @@
         </div>
 
         <div class="prompt-box">
-          <label for="prompt">Instruções (opcional):</label>
-          <textarea id="prompt" placeholder="Ex: Extraia apenas os valores numéricos..."></textarea>
-          <button onclick="enviarImagem()">
+          <div class="tabs">
+            <div class="tab active" data-tab="basic">Básico</div>
+            <div class="tab" data-tab="advanced">Avançado</div>
+          </div>
+          
+          <div class="tab-content active" id="basic-tab">
+            <label for="prompt">Instruções (opcional):</label>
+            <textarea id="prompt" placeholder="Ex: Extraia apenas os valores numéricos..."></textarea>
+          </div>
+          
+          <div class="tab-content" id="advanced-tab">
+            <div class="context-box">
+              <label for="context">Contexto (opcional):</label>
+              <textarea id="context" placeholder="Ex: Estou analisando uma receita médica..."></textarea>
+            </div>
+            <div class="prompt-box">
+              <label for="advanced-prompt">Prompt detalhado:</label>
+              <textarea id="advanced-prompt" placeholder="Ex: Analise os medicamentos e dosagens, destacando possíveis interações..."></textarea>
+            </div>
+          </div>
+          
+          <button onclick="processarImagem()">
             <span id="button-text">Processar Imagem</span>
             <span id="button-loader" class="loading" style="display: none;"></span>
           </button>
@@ -352,9 +400,22 @@
       <div class="panel">
         <div class="output-header">
           <h3>Resultado</h3>
+          <div class="tabs">
+            <div class="tab active" data-tab="result">Texto</div>
+            <div class="tab" data-tab="analysis">Análise</div>
+          </div>
         </div>
-        <div id="output" class="output-box">
-          <p style="color: var(--gray);">O texto extraído aparecerá aqui...</p>
+        
+        <div class="tab-content active" id="result-tab">
+          <div id="output" class="output-box">
+            <p style="color: var(--gray);">O texto extraído aparecerá aqui...</p>
+          </div>
+        </div>
+        
+        <div class="tab-content" id="analysis-tab">
+          <div id="analysis-output" class="output-box">
+            <p style="color: var(--gray);">A análise inteligente aparecerá aqui...</p>
+          </div>
         </div>
         
         <div class="email-form">
@@ -414,8 +475,44 @@
       }
     }
 
-    // Inicializa os emails salvos
-    loadSavedEmails();
+    // Configura as abas
+    function setupTabs() {
+      document.querySelectorAll('[data-tab]').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const tabGroup = tab.closest('.tabs');
+          const tabId = tab.getAttribute('data-tab');
+          
+          // Desativa todas as tabs do mesmo grupo
+          tabGroup.querySelectorAll('.tab').forEach(t => {
+            t.classList.remove('active');
+          });
+          
+          // Ativa a tab clicada
+          tab.classList.add('active');
+          
+          // Encontra o container pai das tabs
+          const tabsContainer = tabGroup.parentNode;
+          
+          // Desativa todos os conteúdos do mesmo grupo
+          tabsContainer.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+          });
+          
+          // Ativa o conteúdo correspondente
+          const contentId = `${tabId}-tab`;
+          const contentElement = document.getElementById(contentId);
+          if (contentElement) {
+            contentElement.classList.add('active');
+          }
+        });
+      });
+    }
+
+    // Inicializa os emails salvos e as abas
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSavedEmails();
+      setupTabs();
+    });
 
     uploadArea.addEventListener('click', () => fileInput.click());
 
@@ -485,7 +582,10 @@
 }
     async function enviarImagem() {
       const prompt = document.getElementById('prompt').value;
+      const context = document.getElementById('context').value;
+      const advancedPrompt = document.getElementById('advanced-prompt').value;
       const output = document.getElementById('output');
+      const analysisOutput = document.getElementById('analysis-output');
 
       if (!selectedFile) {
         alert('Por favor, selecione uma imagem.');
@@ -496,13 +596,18 @@
       buttonText.textContent = 'Processando...';
       buttonLoader.style.display = 'inline-block';
       output.innerHTML = '<p style="color: var(--gray);"><span class="loading"></span> Analisando imagem...</p>';
+      analysisOutput.innerHTML = '<p style="color: var(--gray);"><span class="loading"></span> Preparando análise...</p>';
 
       const formData = new FormData();
       formData.append('image', selectedFile);
-      formData.append('prompt', prompt);
+      
+      // Usar o prompt avançado se existir, senão usar o básico
+      const finalPrompt = advancedPrompt || prompt;
+      if (finalPrompt) formData.append('prompt', finalPrompt);
+      if (context) formData.append('context', context);
 
       try {
-        const res = await fetch('http://localhost:5000/analyze-image', {
+        const res = await fetch('http://localhost:5000/enhanced-image-analysis', {
           method: 'POST',
           body: formData,
         });
@@ -511,12 +616,19 @@
 
         const data = await res.json();
 
-        extractedText = data.explanation || '';
+        extractedText = data.extracted_text || '';
         output.innerHTML = extractedText ? 
           `<p>${extractedText.replace(/\n/g, '<br>')}</p>` : 
           '<p style="color: var(--gray);">Nenhum texto foi identificado na imagem.</p>';
+          
+        if (data.analysis) {
+          analysisOutput.innerHTML = `<p>${data.analysis.replace(/\n/g, '<br>')}</p>`;
+        } else {
+          analysisOutput.innerHTML = '<p style="color: var(--gray);">Nenhuma análise foi gerada. Adicione um prompt para obter uma análise.</p>';
+        }
       } catch (error) {
         output.innerHTML = '<p style="color: #ef4444;">Erro ao processar a imagem. Tente novamente.</p>';
+        analysisOutput.innerHTML = '<p style="color: #ef4444;">Erro ao gerar análise.</p>';
         console.error(error);
       } finally {
         // Reset button state

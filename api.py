@@ -133,8 +133,18 @@ def analyze_image():
         if not extracted_text:
             return jsonify({'error': 'Nenhum texto foi extraído da imagem.'}), 400
 
-        # Analisar o texto usando o agente
-        prompt = f"Este texto foi extraído de uma imagem: {extracted_text}. Vocẽ é um corretor de imóveis e deverá fazer uma avaliação do imóvel do texto extraído, diga pontos interessantes perto do imóvel e também preço médio dele, como o preço da metragem e afins. Responda em português brasileiro."
+        # Analisar o texto usando o agente com o prompt específico
+        prompt = (
+            "Você é um corretor de imóveis e deverá fazer uma avaliação do imóvel com base no seguinte texto extraído: "
+            f"{extracted_text}\n\n"
+            "Por favor, forneça:\n"
+            "1. Uma avaliação detalhada do imóvel\n"
+            "2. Pontos de interesse próximos (escolas, hospitais, comércio, etc.)\n"
+            "3. Preço médio do imóvel e valor por metragem\n"
+            "4. Qualquer observação relevante sobre o imóvel\n\n"
+            "Responda em português brasileiro de forma profissional e detalhada."
+        )
+        
         response = agent.run(prompt)
 
         return jsonify({'explanation': response}), 200

@@ -15,7 +15,7 @@ SuzukAI é um sistema desenvolvido para extrair e processar texto de imagens com
 
 ### Backend
 - Python 3.10+
-- FastAPI
+- Flask
 - Tesseract OCR
 - OpenCV (pré-processamento)
 
